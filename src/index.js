@@ -1,40 +1,20 @@
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
 const express = require('express');
 const path = require('path');
 const expressSession = require('express-session');
 const passport = require('passport');
-const Auth0Strategy = require('passport-auth0');
 const authRouter = require('./auth');
+const {startDatabase} = require('./database/mongo');
+const AdRoutes = require('./ads/ad.routes');
+const {insertAd} = require('./ads/ad.service');
+const {session, strategy, checkJwt} = require('./config');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 1427;
-const session = {
-  secret: 'LoxodontaElephasMammuthusPalaeoloxodonPrimelephas',
-  cookie: {},
-  resave: false,
-  saveUninitialized: false,
-};
-const strategy = new Auth0Strategy(
-  {
-    domain: process.env.AUTH0_DOMAIN,
-    clientID: process.env.AUTH0_CLIENT_ID,
-    clientSecret: process.env.AUTH0_CLIENT_SECRET,
-    callbackURL:
-      process.env.AUTH0_CALLBACK_URL || 'http://localhost:3000/callback',
-  },
-  function (accessToken, refreshToken, extraParams, profile, done) {
-    /**
-     * Access tokens are used to authorize users to an API
-     * (resource server)
-     * accessToken is the token to call the Auth0 API
-     * or a secured third-party API
-     * extraParams.id_token has the JSON Web Token
-     * profile has all the information from the user
-     */
-    return done(null, profile);
-  }
-);
-
 if (app.get('env') === 'production') {
   session.cookie.secure = true;
 }
@@ -46,6 +26,12 @@ app.use(expressSession(session));
 passport.use(strategy);
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(helmet());
+app.use(bodyParser.json());
+app.use(cors());
+app.use(morgan('combined'));
+//app.use(checkJwt);
+app.use('/api/ad', AdRoutes);
 
 passport.serializeUser((user, done) => {
   done(null, user);
@@ -69,7 +55,6 @@ const secured = (req, res, next) => {
 app.use('/', authRouter);
 
 app.get('/', (req, res) => {
-  //res.status(200).send("WHATABYT: Food For Devs");
   res.render('index', {title: 'Home'});
 });
 
@@ -80,7 +65,11 @@ app.get('/user', secured, (req, res, next) => {
     userProfile: userProfile,
   });
 });
-
-app.listen(PORT, () => {
-  console.log(`WHATABYTE app started. Accessible on 127.0.0.1:${PORT}`);
+// start the in-memory MongoDB instance
+startDatabase().then(async () => {
+  await insertAd({title: 'Hello, now from the in-memory database!'});
+  // start the server
+  app.listen(PORT, async () => {
+    console.log(`listening on port ${PORT}`);
+  });
 });
