@@ -39,7 +39,7 @@ router.get('/callback', (req, res, next) => {
 router.get('/logout', (req, res) => {
   req.logOut();
   let returnTo = req.protocol + '://' + req.hostname;
-  const port = req.connection.localPort;
+  const port = 3000;//req.connection.localPort;
   console.log(port);
 
   if (port !== undefined && port !== 80 && port !== 443) {
