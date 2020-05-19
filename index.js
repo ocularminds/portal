@@ -3,7 +3,7 @@ const path = require('path');
 const expressSession = require('express-session');
 const passport = require('passport');
 const Auth0Strategy = require('passport-auth0');
-const authRouter  = require('./auth');
+const authRouter = require('./auth');
 require('dotenv').config();
 
 const app = express();
@@ -59,6 +59,13 @@ app.use((req, res, next) => {
   res.locals.isAuthenticated = req.isAuthenticated();
   next();
 });
+const secured = (req, res, next) => {
+  if (req.user) {
+    return next();
+  }
+  req.session.returnTo = req.originalUrl;
+  res.redirect('/login');
+};
 app.use('/', authRouter);
 
 app.get('/', (req, res) => {
@@ -66,9 +73,14 @@ app.get('/', (req, res) => {
   res.render('index', {title: 'Home'});
 });
 
-app.get('/user', (req, res) => {
-  res.render('user', {title: 'User Profile', userProfile: {nickname: 'Auth0'}});
+app.get('/user', secured, (req, res, next) => {
+  const {_raw, _json, ...userProfile} = req.user;
+  res.render('user', {
+    title: 'Profile',
+    userProfile: userProfile,
+  });
 });
+
 app.listen(PORT, () => {
   console.log(`WHATABYTE app started. Accessible on 127.0.0.1:${PORT}`);
 });
